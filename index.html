@@ -49,7 +49,7 @@
   </div>
 
   <script type="module">
-    const base = "https://" + "://gstatic.com";
+    const base = atob("aHR0cHM6Ly93d3cuZ3N0YXRpYy5jb20vZmlyZWJhc2Vqcy8xMC4xMi4wLw==");
     const { initializeApp } = await import(base + "firebase-app.js");
     const {
       getFirestore, collection, addDoc, updateDoc, deleteDoc,
