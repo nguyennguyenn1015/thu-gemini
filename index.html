@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Note & Nhật Ký Đám Mây</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #f3f4f6; color: #1f2937; padding: 16px; }
+    .container { max-width: 720px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 24px; margin-bottom: 16px; }
+    .card { background: #fff; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
+    input, select, textarea {
+      width: 100%; padding: 10px 12px; margin-bottom: 10px;
+      border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px;
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    button {
+      background: #2563eb; color: #fff; border: none; padding: 10px 16px;
+      border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: #1d4ed8; }
+    .btn-del { background: #ef4444; padding: 6px 10px; font-size: 13px; margin-left: 6px; }
+    .btn-edit { background: #f59e0b; padding: 6px 10px; font-size: 13px; }
+    .note-item { background: #fff; padding: 14px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
+    .note-item.diary { border-left-color: #10b981; }
+    .note-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: #e5e7eb; }
+    .date { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+    .content { white-space: pre-wrap; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📒 Note & Nhật Ký Đồng Bộ</h1>
+
+    <div class="card">
+      <input type="hidden" id="editId" />
+      <select id="type">
+        <option value="note">📝 Ghi chú nhanh (Note)</option>
+        <option value="diary">📖 Nhật ký hằng ngày</option>
+      </select>
+      <input type="text" id="title" placeholder="Tiêu đề..." />
+      <textarea id="content" placeholder="Viết nội dung tại đây..."></textarea>
+      <button id="saveBtn">Lưu bài viết</button>
+    </div>
+
+    <div id="list">Đang tải dữ liệu...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://gstatic.com";
+    import {
+      getFirestore, collection, addDoc, updateDoc, deleteDoc,
+      doc, onSnapshot, query, orderBy, serverTimestamp
+    } from "https://gstatic.com";
+
+    // DÁN MÃ FIREBASE CONFIG CỦA BẠN VÀO ĐÂY
+    const firebaseConfig = {
+      apiKey: "AIzaSyB04NZ8GzKFQp51EegQ7MeYKTEx3RXpgLo",
+      authDomain: "test-gemini-c2de8.firebaseapp.com",
+      projectId: "test-gemini-c2de8",
+      storageBucket: "test-gemini-c2de8.firebasestorage.app",
+      messagingSenderId: "703046032711",
+      appId: "1:703046032711:web:2c6542d91586b96298c062"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const notesCol = collection(db, "notes");
+
+    const titleEl = document.getElementById("title");
+    const contentEl = document.getElementById("content");
+    const typeEl = document.getElementById("type");
+    const editIdEl = document.getElementById("editId");
+    const saveBtn = document.getElementById("saveBtn");
+    const listEl = document.getElementById("list");
+
+    saveBtn.onclick = async () => {
+      const title = titleEl.value.trim();
+      const content = contentEl.value.trim();
+      const type = typeEl.value;
+      if (!title && !content) return alert("Vui lòng nhập nội dung!");
+
+      if (editIdEl.value) {
+        await updateDoc(doc(db, "notes", editIdEl.value), { title, content, type });
+        editIdEl.value = "";
+        saveBtn.textContent = "Lưu bài viết";
+      } else {
+        await addDoc(notesCol, { title, content, type, createdAt: serverTimestamp() });
+      }
+      titleEl.value = "";
+      contentEl.value = "";
+    };
+
+    const q = query(notesCol, orderBy("createdAt", "desc"));
+    onSnapshot(q, (snapshot) => {
+      listEl.innerHTML = "";
+      snapshot.forEach((d) => {
+        const data = d.data();
+        const div = document.createElement("div");
+        div.className = `note-item ${data.type === "diary" ? "diary" : ""}`;
+        const timeStr = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString("vi-VN") : "Vừa xong";
+
+        div.innerHTML = `
+          <div class="note-header">
+            <strong>${data.title || "(Không tiêu đề)"} <span class="badge">${data.type === "diary" ? "Nhật ký" : "Note"}</span></strong>
+            <div>
+              <button class="btn-edit">Sửa</button>
+              <button class="btn-del">Xóa</button>
+            </div>
+          </div>
+          <div class="date">${timeStr}</div>
+          <div class="content">${data.content}</div>
+        `;
+
+        div.querySelector(".btn-edit").onclick = () => {
+          editIdEl.value = d.id;
+          titleEl.value = data.title;
+          contentEl.value = data.content;
+          typeEl.value = data.type;
+          saveBtn.textContent = "Cập nhật bài viết";
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        };
+
+        div.querySelector(".btn-del").onclick = async () => {
+          if (confirm("Xóa bài này?")) await deleteDoc(doc(db, "notes", d.id));
+        };
+
+        listEl.appendChild(div);
+      });
+    });
+  </script>
+</body>
+</html>
