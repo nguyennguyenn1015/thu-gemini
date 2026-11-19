@@ -49,13 +49,14 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com";
-    import {
+    const base = "https://" + "://gstatic.com";
+    const { initializeApp } = await import(base + "firebase-app.js");
+    const {
       getFirestore, collection, addDoc, updateDoc, deleteDoc,
       doc, onSnapshot, query, orderBy, serverTimestamp
-    } from "https://www.gstatic.com";
+    } = await import(base + "firebase-firestore.js");
 
-    // DÁN MÃ FIREBASE CONFIG CỦA BẠN VÀO ĐÂY
+    // === DÁN ĐOẠN firebaseConfig CỦA BẠN VÀO ĐÂY ===
     const firebaseConfig = {
       apiKey: "AIzaSyB04NZ8GzKFQp51EegQ7MeYKTEx3RXpgLo",
       authDomain: "test-gemini-c2de8.firebaseapp.com",
@@ -64,6 +65,7 @@
       messagingSenderId: "703046032711",
       appId: "1:703046032711:web:2c6542d91586b96298c062"
     };
+    // ==============================================
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -96,6 +98,10 @@
     const q = query(notesCol, orderBy("createdAt", "desc"));
     onSnapshot(q, (snapshot) => {
       listEl.innerHTML = "";
+      if (snapshot.empty) {
+        listEl.innerHTML = "<p style='text-align:center;color:#6b7280;'>Chưa có bài viết nào. Hãy viết bài đầu tiên nhé!</p>";
+        return;
+      }
       snapshot.forEach((d) => {
         const data = d.data();
         const div = document.createElement("div");
@@ -111,8 +117,9 @@
             </div>
           </div>
           <div class="date">${timeStr}</div>
-          <div class="content">${data.content}</div>
+          <div class="content"></div>
         `;
+        div.querySelector(".content").textContent = data.content;
 
         div.querySelector(".btn-edit").onclick = () => {
           editIdEl.value = d.id;
